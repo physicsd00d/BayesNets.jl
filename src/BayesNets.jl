@@ -3,7 +3,7 @@ module BayesNets
 export BayesNet, addEdge!, removeEdge!, addEdges!, CPD, CPDs, prob, setCPD!, pdf, rand, randBernoulliDict, randDiscreteDict, table, domain, Assignment, *, sumout, normalize, select, randTable, NodeName, consistent, estimate, randTableWeighted, estimateConvergence
 export Domain, BinaryDomain, DiscreteDomain, RealDomain, domain, cpd, parents
 
-import Graphs: GenericGraph, simple_graph, Edge, add_edge!, topological_sort_by_dfs, in_edges, source, in_neighbors
+import Graphs: GenericGraph, simple_graph, Edge, add_edge!, topological_sort_by_dfs, in_edges, source, in_neighbors, AbstractGraph
 import TikzGraphs: plot
 import Base: rand, select
 import DataFrames: DataFrame, groupby, array, isna
@@ -56,6 +56,39 @@ type BayesNet
     cpds = CPD[CPDs.Bernoulli() for i = 1:n]
     domains = Domain[BinaryDomain() for i = 1:n] # default to binary domain
     new(simple_graph(length(names)), cpds, index, names, domains)
+  end
+
+  function BayesNet{GT<:AbstractGraph}(incomingGraph::GT)
+    # Pull out everything you need to generate an empty BayesNet
+    # For some reason, you can't have the first character be a number for a symbol.  Make it N for nodes.
+    names::Vector{Symbol} = [symbol("N$curName") for curName in incomingGraph.vertices]
+    n = length(names)
+    index = [names[i]=>i for i = 1:n]
+    cpds = CPD[CPDs.Bernoulli() for i = 1:n]
+    domains = Domain[BinaryDomain() for i = 1:n] # default to binary domain
+
+    # Flatten out the edges into a single array
+    edgeList = Array(Edge{Int64},0)
+    for thisList in incomingGraph.inclist
+      for thisEdge in thisList
+        push!(edgeList, thisEdge)
+      end
+    end
+
+    # Make the empty BayesNet
+    this = new(simple_graph(length(names)), cpds, index, names, domains)
+
+    # Populate it with the info from the incoming Graph
+    this.dag.finclist = incomingGraph.inclist   # I'm not sure if BayesNet even uses this field
+    this.dag.binclist = incomingGraph.inclist   # I'm not sure if BayesNet even uses this field
+    this.dag.edges    = edgeList                # This one is important!
+
+    # Cover your @$$
+    println("BayesNet: You just created me from a Graph.  I did ZERO error checking to make sure you passed a valid DAG.")
+    println("          It's also up to you to fill in the conditional probabilities.")
+
+    # Return the object
+    this
   end
 end
 
