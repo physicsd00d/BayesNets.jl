@@ -57,11 +57,26 @@ type BayesNet
     new(simple_graph(length(names)), cpds, index, names, domains)
   end
 
-  function BayesNet{GT<:AbstractGraph}(incomingGraph::GT)
-    # Pull out everything you need to generate an empty BayesNet
-    # For some reason, you can't have the first character be a number for a symbol.  Make it N for nodes.
-    names::Vector{Symbol} = [symbol("N$curName") for curName in incomingGraph.vertices]
-    n = length(names)
+  function BayesNet{GT<:AbstractGraph}(incomingGraph::GT, incomingNames::Vector{NodeName} = Vector{NodeName}[])
+    # Having generated a graph, turn that into a BayesNet
+
+    n = length(incomingGraph.vertices)
+    names = Vector{Symbol}[]
+
+    # If the node names were given, use them, otherwise make them generic
+    if length(incomingNames) == n
+      # Do nothing, just use incomingNames
+      names = incomingNames
+    elseif length(incomingNames) == 0
+      # User didn't pass in any names, make some generic names instead
+      # For some reason, you can't have the first character be a number for a symbol.  Make it N for nodes.
+      names = [symbol("N$curName") for curName in incomingGraph.vertices]
+    else
+      line1 = "ERROR: You tried to generate a BayesNet from an AbstractGraph\n"
+      line2 = "       You passed in $(length(incomingNames)) but there are $(n) verticies in the Graph"
+      error(line1 * line2)
+    end
+
     index = [names[i]=>i for i = 1:n]
     cpds = CPD[CPDs.Bernoulli() for i = 1:n]
     domains = Domain[BinaryDomain() for i = 1:n] # default to binary domain
